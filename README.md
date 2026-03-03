@@ -405,7 +405,6 @@ If you use this project in your research or work, please cite:
 ## Contact & Support
 
 **Questions or Issues?**
-- 📧 Email: dao.vanduc@study.unive.it
 - 🐛 Report Bugs: Open an issue on GitHub
 - 💡 Feature Requests: Submit a pull request
 
