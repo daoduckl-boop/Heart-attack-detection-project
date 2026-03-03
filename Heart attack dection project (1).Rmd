@@ -1,0 +1,707 @@
+---
+title: "EDA"
+author: "Dao Van Duc"
+date: "2025-05-07"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load heart data
+```{r}
+library(readxl)
+library(dplyr)
+```
+
+```{r}
+data = read_excel('Heart dectection .xlsx')
+head(data)
+```
+
+```{r}
+colnames(data)
+```
+# Clean data
+```{R}
+colSums(is.na(data))
+
+```
+
+The data do not contains NA value
+
+
+```{r}
+unique(data$GeneralHealth)
+```
+
+General health: Self-reported health status.
+
+```{r}
+unique(data$Sex)
+```
+
+Sex: gender of the patient 
+
+```{r}
+unique(data$AgeCategory)
+```
+
+Age category : Categorized age group of the patient.
+
+```{r}
+unique(data$SmokerStatus)
+```
+
+```{r}
+unique(data$RaceEthnicityCategory)
+```
+
+ChestScan: Indicator of whether the patient had a chest scan
+Hadheartattack,Hadangina,hadstroke,haddiabetes and chestscan are binary 
+
+```{r}
+summary(data)
+```
+
+```{r}
+str(data)
+
+```
+
+Change categorical variables to factor 
+```{r}
+data$Sex <- as.factor(data$Sex)
+data$GeneralHealth <- as.factor(data$GeneralHealth)
+data$AgeCategory <- as.factor(data$AgeCategory)
+data$HadHeartAttack <- as.factor(data$HadHeartAttack)
+data$HadAngina <- as.factor(data$HadAngina)
+data$HadStroke <- as.factor(data$HadStroke)
+data$HadDiabetes <- as.factor(data$HadDiabetes)
+data$SmokerStatus <- as.factor(data$SmokerStatus)
+data$RaceEthnicityCategory <- as.factor(data$RaceEthnicityCategory)
+data$ChestScan <- as.factor(data$ChestScan)
+
+```
+
+# EDA
+Target variable : Had heart attack 
+```{r}
+table(data$HadHeartAttack)
+prop.table(table(data$HadHeartAttack)*100)
+```
+Let's plot target variable
+```{r}
+library(ggplot2)
+ggplot(data, aes(x = HadHeartAttack)) + 
+  geom_bar(fill = "steelblue") +
+  labs(title = "distribution of patients  having heart attack ",
+       x = "Heart attack history", y = "Count")
+```
+
+* My comment: the heart attack data is immbalance 
+
+Analyze the relationships between target and other variables
+```{r}
+# Analysis by gender
+ggplot(data, aes(x = Sex, fill = HadHeartAttack)) +
+  geom_bar(position = "fill") +
+  labs(title = "Heart Attack Rate by Gender",
+       y = "Proportion")
+
+```
+
+* My comment:
+-  The percentage of the male having heart attack is higher than  that of the female
+```{r}
+# Analysis by smoking status
+ggplot(data, aes(x = SmokerStatus, fill = HadHeartAttack)) +
+  geom_bar(position = "fill") +
+  labs(title = "Heart Attack Rate by Smoking Status",
+       y = "Proportion") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+My comment: 
+- The percentage of people smolking every day is highest
+
+```{r}
+# Analysis by age group
+ggplot(data, aes(x = AgeCategory, fill = HadHeartAttack)) +
+  geom_bar(position = "fill") +
+  labs(title = "Heart Attack Rate by Age Group",
+       y = "Proportion") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+* My comment:
+- "The older a person gets, the more likely they are to develop heart disease."
+
+```{r}
+unique(data$HadDiabetes)
+```
+
+```{r}
+ggplot(data, aes(x = HadDiabetes, fill = HadHeartAttack)) +
+  geom_bar(position = "fill") +
+  labs(title = "Heart Attack Rate by Diabetes Status",
+       y = "Proportion")
+```
+
+* My comment:
+-People with a history of diabetes have a higher percentage risk of developing heart-related diseases
+# Correlation Analysis Between Numerical Variables
+```{r}
+# Select only numerical variables
+numeric_vars <- data[, sapply(data, is.numeric)]
+numeric_vars <- numeric_vars[, !names(numeric_vars) %in% c("PatientID")]
+
+# Correlation matrix
+library(corrplot)
+cor_matrix <- cor(numeric_vars, use = "complete.obs")
+corrplot(cor_matrix, method = "circle")
+
+# Pairplot visualization
+library(GGally)
+ggpairs(numeric_vars)  
+```
+
+* My comment:
+- the correlation between BMI and Weightinkilogram is 0.859 => this means BMI and Weight have strong relationship
+
+```{r}
+# BMI vs Weight, split by gender and heart attack history
+ggplot(data, aes(x = WeightInKilograms, y = BMI, color = HadHeartAttack)) +
+  geom_point(alpha = 0.5) +
+  facet_wrap(~ Sex) +
+  labs(title = "Relationship Between Weight and BMI by Gender and Heart Attack History")
+
+# Chi-square test between smoking status and heart attack
+chisq.test(data$SmokerStatus, data$HadHeartAttack)
+
+# Chi-square test between diabetes and heart attack
+chisq.test(data$HadDiabetes, data$HadHeartAttack)
+```
+
+* My comment:
+The X-squared (chi-square) value is 2166.4
+There are 3 degrees of freedom (df), suggesting smoking status has 4 categories
+The p-value is extremely small (< 2.2e-16)
+Statistical interpretation: There is overwhelming statistical evidence of a strong association between smoking status and heart attacks. The very small p-value (much less than 0.05) indicates this relationship is extremely unlikely to have occurred by chance.
+
+The X-squared value is 5197, which is even higher than the smoking test
+There are 3 degrees of freedom (df), suggesting diabetes status has 4 categories
+The p-value is extremely small (< 2.2e-16)
+Statistical interpretation: There is extremely strong statistical evidence of an association between diabetes and heart attacks. The very high chi-square value and extremely small p-value indicate this relationship is extremely unlikely to be due to chance.
+
+```{r}
+# Create BMI Category variable
+data$BMI_Category <- cut(data$BMI, 
+                         breaks = c(0, 18.5, 25, 30, Inf),
+                         labels = c("Underweight", "Normal", "Overweight", "Obese"))
+
+# Analyze heart attack history by BMI group
+ggplot(data, aes(x = BMI_Category, fill = HadHeartAttack)) +
+  geom_bar(position = "fill") +
+  labs(title = "Heart Attack Rate by BMI Category",
+       y = "Proportion")
+```
+
+
+* My comment
+There doesn't seem to be a strong visual trend showing that higher BMI categories have substantially higher heart attack rates
+The "Obese" category might have a slightly higher proportion of heart attacks, but the difference appears minimal
+
+```{r}
+# Create summary tables
+library(tableone)
+vars <- c("Age", "Sex", "BMI", "SmokerStatus", "HadDiabetes", "GeneralHealth")
+catVars <- c("Sex", "SmokerStatus", "HadDiabetes", "GeneralHealth")
+tableOne <- CreateTableOne(vars = vars, strata = "HadHeartAttack", 
+                           data = data, factorVars = catVars)
+print(tableOne, showAllLevels = TRUE)
+```
+* Summary of findings:
+
+
+1. **Sample size**: 
+   - Total of 235,630 individuals (224,429 without heart attack history + 13,201 with heart attack history)
+   - Non-heart attack group: 224,429 people (95.4%)
+   - Heart attack group: 13,201 people (4.6%)
+
+2. **Gender differences**:
+   - In the non-heart attack group: 52.8% female, 47.2% male
+   - In the heart attack group: 36.8% female, 63.2% male (significantly higher proportion of males)
+
+3. **BMI index**:
+   - Non-heart attack group: Mean BMI 28.64 (SD=6.52)
+   - Heart attack group: Mean BMI 29.50 (SD=6.58) (slightly higher)
+
+4. **Smoking status**:
+   - In the heart attack group, the proportion of "Former smoker" is notably higher (41.6% vs 27.0%)
+   - The "Never smoked" rate is higher in the non-heart attack group (61.0% vs 40.7%)
+
+5. **Diabetes**:
+   - In the heart attack group, the diabetes rate is significantly higher (34.8% vs 12.7%)
+   - People without diabetes are less likely to have heart attacks (84.3% without diabetes in the non-heart attack group)
+
+6. **General health**:
+   - The heart attack group has a higher rate of "Poor" health (15.2% vs 3.2%)
+   - The non-heart attack group has higher rates of "Excellent" and "Very good" health
+
+7. **P-values**: All comparisons have p < 0.001, indicating that all observed differences are statistically significant.
+
+Main conclusion: This table demonstrates that male gender, higher BMI, smoking history, diabetes, and poor general health are significantly associated with heart attack risk.
+
+## 2.3 Feature Selection and Engineering
+
+In the Exploratory Data Analysis section, we previously examined relationships between variables using both Pearson correlation for numeric features and Chi-square tests for categorical features. These analyses helped identify variables strongly associated with the target outcome (heart attack).
+
+Based on those insights, we now proceed to select the most relevant features for our modeling process. We remove variables that are either:
+- Highly correlated with one another (multicollinearity),
+- Irrelevant to heart attack prediction based on prior statistical tests, or
+- Non-informative, such as IDs or features with near-zero variance.
+
+In addition, we explore the optional use of Principal Component Analysis (PCA) to reduce dimensionality while preserving most of the dataset's variance. This can help improve model performance, particularly in algorithms sensitive to feature redundancy.
+
+```{r}
+# Drop ID column
+data_cleaned <- data[, !names(data) %in% c("PatientID")]
+
+```
+
+We remove PatientID because it is an identifier unique to each patient - it doesn't carry predictive power and can confuse models if left in.
+
+```{r}
+# Remove near-zero variance features
+library(caret)
+nzv <- nearZeroVar(data_cleaned)
+if (length(nzv) > 0) {
+  data_cleaned <- data_cleaned[, -nzv]
+}
+
+removed_features <- names(data_cleaned)[nzv]
+print("Features removed due to near-zero variance:")
+print(removed_features)
+
+```
+
+Variables with little to no variation (e.g., same value for most observations) are uninformative for the model and can be safely dropped. The nearZeroVar() function from the caret package detects such variables. In our case, no features were removed due to near-zero variance. Essentially, all the features in our dataset have sufficient variability, and none were considered redundant based on their variance.
+```{r}
+
+# Find highly correlated features (threshold > 0.8)
+high_corr <- findCorrelation(cor_matrix, cutoff = 0.8)
+
+
+# Remove them
+if (length(high_corr) > 0) {
+  data_cleaned <- data_cleaned[, -high_corr]
+  removed_corr_features <- colnames(cor_matrix)[high_corr]
+  print("Highly correlated features removed:")
+  print(removed_corr_features)
+}
+```
+Feature Selection Justification:
+The variable WeightInKilogram was removed due to a high correlation (0.859) with BMI. Since BMI incorporates both weight and height, it was retained as the more informative and medically relevant feature. Removing highly correlated features helps reduce redundancy and potential multicollinearity in later modeling steps.
+
+
+
+```{r}
+library(rcompanion)
+library(reshape2)
+
+# Get only categorical variables
+cat_vars <- data_cleaned[, sapply(data_cleaned, is.factor)]
+
+# Compute Cramer's V matrix
+cramers_v_matrix <- matrix(NA, ncol = ncol(cat_vars), nrow = ncol(cat_vars))
+colnames(cramers_v_matrix) <- rownames(cramers_v_matrix) <- names(cat_vars)
+
+for (i in 1:ncol(cat_vars)) {
+  for (j in 1:ncol(cat_vars)) {
+    if (i != j) {
+      cramers_v_matrix[i, j] <- cramerV(cat_vars[[i]], cat_vars[[j]])
+    } else {
+      cramers_v_matrix[i, j] <- NA
+    }
+  }
+}
+
+# Print pairs with Cramer's V > 0.8
+which(cramers_v_matrix > 0.8, arr.ind = TRUE)
+
+high_corr_indices <- which(cramers_v_matrix > 0.8, arr.ind = TRUE)
+
+# Display variable name pairs with high association
+apply(high_corr_indices, 1, function(idx) {
+  paste(colnames(cat_vars)[idx[1]], "<->", colnames(cat_vars)[idx[2]])
+})
+
+```
+
+No pairs of categorical variables were found to have high correlation (Cramer's V > 0.8), indicating that all categorical features provide distinct information and can be retained for the modeling phase without concern for redundancy.
+
+Splitting the data:
+
+```{r}
+# Load required package
+library(caret)
+
+# Set a seed for reproducibility
+set.seed(123)
+
+# Create a partition based on the actual target variable
+trainIndex <- createDataPartition(data_cleaned$HadHeartAttack, p = 0.8, list = FALSE)
+
+# Subset the data
+train_data <- data_cleaned[trainIndex, ]
+test_data <- data_cleaned[-trainIndex, ]
+
+```
+
+The dataset is splitted into training (80%) and testing (20%) sets using 'HadHeartAttack' as the target variable.Stratified sampling ensures class distribution is maintained.
+
+```{r}
+sum(train_data$HadHeartAttack==1)
+```
+```{r}
+sum(train_data$HadHeartAttack==0)
+```
+
+```{r}
+sum(test_data$HadHeartAttack==1)
+```
+
+```{r}
+sum(train_data$HadHeartAttack==0)
+```
+
+# Load required libraries
+```{r}
+library(caret)
+library(dplyr)
+library(ggplot2)
+library(pROC)
+library(corrplot)
+```
+# 1. DATA PREPARATION
+
+
+# Check data distribution before processing
+```{R}
+print("\nOriginal data distribution:")
+print("Training data:")
+table(train_data$HadHeartAttack)
+prop.table(table(train_data$HadHeartAttack)) * 100
+
+print("\nTest data:")
+table(test_data$HadHeartAttack)
+prop.table(table(test_data$HadHeartAttack)) * 100
+```
+# 2. APPLY DOWNSAMPLING TO TRAINING DATA ONLY
+```{r}
+
+set.seed(123)
+```
+# Separate training data into majority and minority classes
+```{r}
+majority_class <- train_data[train_data$HadHeartAttack == 0, ]
+minority_class <- train_data[train_data$HadHeartAttack == 1, ]
+
+print(paste("Majority class size:", nrow(majority_class)))
+print(paste("Minority class size:", nrow(minority_class)))
+
+# Random sample from majority class to match minority class size
+downsample_majority <- majority_class[sample(nrow(majority_class), nrow(minority_class)), ]
+
+# Combine to create balanced training dataset
+balanced_train <- rbind(downsample_majority, minority_class)
+
+# Shuffle the balanced training data
+balanced_train <- balanced_train[sample(nrow(balanced_train)), ]
+
+print("\nBalanced training data distribution:")
+table(balanced_train$HadHeartAttack)
+prop.table(table(balanced_train$HadHeartAttack)) * 100
+```
+# 3. PREPARE DATA FOR MODELING
+
+
+# Convert target to numeric (0/1) for logistic regression
+```{r}
+balanced_train$HadHeartAttack_numeric <- as.numeric(as.character(balanced_train$HadHeartAttack))
+test_data$HadHeartAttack_numeric <- as.numeric(as.character(test_data$HadHeartAttack))
+```
+# Create model formula with all available  predictors
+```{R}
+exclude_vars <- c("HadHeartAttack", "HadHeartAttack_numeric", "PatientID","WeightInKilograms")
+predictor_vars <- names(balanced_train)[!names(balanced_train) %in% exclude_vars]
+
+formula_string <- paste("HadHeartAttack_numeric ~", paste(predictor_vars, collapse = " + "))
+formula <- as.formula(formula_string)
+
+print("\nPredictors used in the model:")
+print(predictor_vars)
+print(paste("\nTotal number of predictors:", length(predictor_vars)))
+```
+# 4. TRAIN LOGISTIC REGRESSION MODEL
+# Fit logistic regression model
+
+```{r}
+head(balanced_train)
+```
+
+```{R}
+logistic_model <- glm(formula, data = balanced_train, family = binomial())
+
+# Display model summary
+print("\nModel Summary:")
+summary(logistic_model)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 5. EVALUATE MODEL ON ORIGINAL TEST DATA
+
+# Make predictions on test data
+```{R}
+predictions <- predict(logistic_model, test_data, type = "response")
+predicted_classes <- ifelse(predictions > 0.5, 1, 0)
+```
+# Create confusion matrix
+```{r}
+confusion_matrix <- confusionMatrix(factor(predicted_classes), 
+                                   factor(test_data$HadHeartAttack_numeric),
+                                   positive = "1")
+```
+# Calculate performance metrics
+```{r}
+accuracy <- confusion_matrix$overall['Accuracy']
+sensitivity <- confusion_matrix$byClass['Sensitivity']
+specificity <- confusion_matrix$byClass['Specificity']
+precision <- confusion_matrix$byClass['Pos Pred Value']
+f1_score <- confusion_matrix$byClass['F1']
+
+print("\nModel Performance Metrics:")
+print(paste("Accuracy:", round(accuracy, 4)))
+print(paste("Sensitivity (Recall):", round(sensitivity, 4)))
+print(paste("Specificity:", round(specificity, 4)))
+print(paste("Precision:", round(precision, 4)))
+print(paste("F1 Score:", round(f1_score, 4)))
+```
+# 6. ROC CURVE AND AUC
+
+# Create ROC curve
+```{r}
+roc_obj <- roc(test_data$HadHeartAttack_numeric, predictions)
+auc_value <- auc(roc_obj)
+
+print(paste("AUC:", round(auc_value, 4)))
+```
+# Plot ROC curve
+```{R}
+
+plot(roc_obj, main = paste("ROC Curve (AUC =", round(auc_value, 3), ")"),
+     col = "blue", lwd = 2)
+```
+
+```{r}
+# Print detailed confusion matrix
+print("\n=== FINAL RESULTS ===")
+print("\nDetailed Confusion Matrix:")
+print(confusion_matrix)
+
+print("\n=== MODEL PERFORMANCE SUMMARY ===")
+print(paste("- AUC:", round(auc_value, 4)))
+print(paste("- Accuracy:", round(accuracy, 4)))
+print(paste("- Sensitivity:", round(sensitivity, 4)))
+print(paste("- Specificity:", round(specificity, 4)))
+print(paste("- Precision:", round(precision, 4)))
+print(paste("- F1 Score:", round(f1_score, 4)))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The Random Forest model was also implemented and showed good results, potentially offering an alternative to logistic regression in this case.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Random Forest Model
+```{r}
+library(randomForest)
+library(caret)
+```
+# Prepare data
+```{r}
+train_vars <- names(balanced_train)[!names(balanced_train) %in% c("HadHeartAttack", "HadHeartAttack_numeric")]
+train_x <- balanced_train[, train_vars]
+train_y <- factor(balanced_train$HadHeartAttack_numeric, levels = c(0, 1), labels = c("No", "Yes"))
+
+test_x <- test_data[, train_vars]
+test_y <- factor(test_data$HadHeartAttack_numeric, levels = c(0, 1), labels = c("No", "Yes"))
+```
+# Train Random Forest with class weights
+```{r}
+# Simple Random Forest without sampsize specification
+rf_model <- randomForest(x = train_x, 
+                        y = train_y,
+                        ntree = 500,
+                        mtry = sqrt(ncol(train_x)),
+                        classwt = c(1, 3), # Keep class weights
+                        importance = TRUE)
+                     
+```
+# Make predictions
+```{r}
+rf_pred <- predict(rf_model, test_x)
+rf_prob <- predict(rf_model, test_x, type = "prob")[,2]
+```
+# Evaluate
+```{r}
+rf_cm <- confusionMatrix(rf_pred, test_y, positive = "Yes")
+rf_roc <- roc(as.numeric(test_y)-1, rf_prob)
+
+print(rf_cm)
+print(paste("AUC:", auc(rf_roc)))
+```
+# Performance Analysis of Random Forest Model in Heart Attack Detection Project
+
+## 1. Key Performance Metrics
+
+### Overall Accuracy
+- **Accuracy: 0.753 (95% CI: 0.7491, 0.7569)**
+  - The model correctly predicts about 75.3% of all cases.
+  - The narrow 95% confidence interval indicates that the accuracy estimate is quite stable.
+
+### Detection of Positive Cases (Heart Attack Risk)
+- **Sensitivity (Recall): 0.80833**
+  - The model detects approximately 80.8% of actual heart attack risk cases.
+  - This is a good rate, particularly important in healthcare where missing positive cases can have serious consequences.
+
+- **Specificity: 0.74974**
+  - The model correctly identifies about 75% of cases without heart attack risk.
+
+- **Positive Predictive Value (Precision): 0.15965**
+  - Only about 16% of cases predicted to have heart attack risk are actually positive.
+  - This metric is relatively low, indicating the model generates many false positive alerts.
+
+- **AUC: 0.8697**
+  - The area under the ROC curve is nearly 0.87, showing good discrimination ability between classes.
+  - This important overall evaluation metric indicates the model performs quite well.
+
+## 2. Confusion Matrix
+
+```
+Reference
+Prediction   No   Yes
+        No  33652 506
+        Yes 11233 2134
+```
+
+- **True Negatives (TN): 33,652** - Correctly predicted no heart attack risk
+- **False Positives (FP): 11,233** - Incorrectly predicted heart attack risk (false positives)
+- **False Negatives (FN): 506** - Incorrectly predicted no heart attack risk (false negatives)
+- **True Positives (TP): 2,134** - Correctly predicted heart attack risk
+
+## 3. Model Evaluation
+
+### Strengths
+1. **High Sensitivity (0.81)**: The model detects most cases with actual heart attack risk, which is critical in medical contexts.
+2. **High AUC (0.87)**: Demonstrates good discrimination ability between classes.
+3. **High Balanced Accuracy (0.779)**: The average of sensitivity and specificity shows the model performs well on both classes.
+4. **High Negative Predictive Value (0.985)**: When the model predicts no heart attack risk, this prediction is reliable in about 98.5% of cases.
+
+### Weaknesses
+1. **Low Precision (0.16)**: Only about 16% of heart attack risk alerts are accurate, leading to many false alarms.
+2. **Low Kappa (0.19)**: The Kappa statistic measures agreement between predictions and actual values, accounting for chance. This value is relatively low, suggesting the model is only slightly better than random prediction.
+3. **Low Detection Rate (0.045)**: The proportion of correctly identified positive cases in the total sample is low.
+
+
+# Feature importance
+```{r}
+importance(rf_model)
+varImpPlot(rf_model)
+```
